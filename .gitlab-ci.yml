@@ -1,0 +1,101 @@
+# Change pip's cache directory to be inside the project directory since we can
+# only cache local items.
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache"
+
+# Pip's cache doesn't store the python packages
+# https://pip.pypa.io/en/stable/reference/pip_install/#caching
+#
+# If you want to also cache the installed packages, you have to install
+# them in a virtualenv and cache it as well.
+# cache:
+#   paths:
+#     - .cache/pip
+#     - venv/
+
+# before_script:
+#   - python -V               # Print out python version for debugging
+#   - pip install virtualenv
+#   - virtualenv venv
+#   - source venv/bin/activate
+
+stages:
+  - Test
+  - Deploy
+  - Documentation
+
+Code Quality Testing:
+  stage: Test
+  tags:
+    - PACKAGE
+  script:
+  - flake8 src/ghrs --exclude _version.py
+  only:
+  - master
+  allow_failure: true
+
+Unit Testing:
+  stage: Test
+  tags:
+    - PACKAGE
+  script:
+  - |
+    & pytest
+#    & tox
+  only:
+  - master
+
+Coverage Testing:
+  stage: Test
+  tags:
+    - PACKAGE
+  script:
+  - |
+    pytest --cov-config=.coveragerc --cov=ghrs tests/
+  only:
+  - master
+
+Package Deployment:
+  stage: Deploy
+  tags:
+    - PACKAGE
+  script:
+  - |
+    & python setup.py sdist
+    cp dist/*.* C:/PyPI/Packages
+  environment:
+    name: Package
+    url: http://sasv04ek:8008/simple/ghrs/
+  only:
+  - master
+
+Documentation:
+  stage: Documentation
+  tags:
+    - DOCUMENTATION
+  script:
+  - |
+    cd docs
+    & sphinx-apidoc -f -o . ../src/ghrs -M -e
+    & ./make.bat html
+    Remove-Item E:/Documentation/ghrs -Recurse -Force -Confirm:$false
+    mv _build/html/ E:/Documentation/ghrs
+  environment:
+    name: Documentation
+    url: http://sasv04ek:1010/ghrs/index.html
+  only:
+  - master
+
+# pages:
+#   tags:
+#     - XMACHINE
+#   script:
+#   - |
+#     cd docs
+#     & .\make.bat html
+#     mv _build/html/ ../public/
+#   artifacts:
+#     paths:
+#     - public
+#   only:
+#   - master
